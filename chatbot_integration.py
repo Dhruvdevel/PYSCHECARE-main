@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import pickle
 import random
 import sys
 from pathlib import Path
@@ -53,14 +52,14 @@ def load_chatbot_model():
     try:
         # Set paths for model files
         model_path = os.path.join(python_chatbot_path, "chatbot-model.h5")
-        pickle_path = os.path.join(python_chatbot_path, "data.pickle")
+        data_path = os.path.join(python_chatbot_path, "data.json")
         intents_path = os.path.join(python_chatbot_path, "ChatbotWebsite", "static", "data", "intents.json")
         
         # Check if we're working with the provided files or the ones in the original location
         if not os.path.exists(intents_path):
             intents_path = os.path.join(os.path.dirname(__file__), "chatbot_files", "intents.json")
             model_path = os.path.join(os.path.dirname(__file__), "chatbot_files", "model.h5")
-            pickle_path = os.path.join(os.path.dirname(__file__), "chatbot_files", "data.pickle")
+            data_path = os.path.join(os.path.dirname(__file__), "chatbot_files", "data.json")
         
         # Load intents file
         with open(intents_path) as file:
@@ -68,8 +67,12 @@ def load_chatbot_model():
         
         # Try to load existing model and data
         try:
-            with open(pickle_path, "rb") as f:
-                words, classes, training, output = pickle.load(f)
+            with open(data_path, "r") as f:
+                data_dict = json.load(f)
+                words = data_dict.get("words", [])
+                classes = data_dict.get("classes", [])
+                training = data_dict.get("training", [])
+                output = data_dict.get("output", [])
             model = load_model(model_path)
             print("Chatbot model loaded successfully!")
         except FileNotFoundError as e:

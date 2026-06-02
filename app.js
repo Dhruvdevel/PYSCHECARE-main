@@ -46,7 +46,7 @@ card2.addEventListener('click',()=>{
 
 
 card3.addEventListener('click',()=>{
-    window.location.href="#SECTION-3";
+    window.location.href="#section-3";
 })
 
 

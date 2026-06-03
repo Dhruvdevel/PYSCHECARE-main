@@ -541,12 +541,16 @@
             const msgerInput = document.querySelector(".msger-input");
 
             if (msgerForm) {
-                msgerForm.addEventListener("submit", event => {
+                msgerForm.addEventListener("submit", async event => {
                     event.preventDefault();
                     if (currentMode !== 'text') return; // Submit is disabled in voice mode
                     
                     const msgText = msgerInput.value.trim();
                     if (!msgText) return;
+
+                    // Frontend Debouncing: Disable inputs while waiting for response
+                    msgerInput.disabled = true;
+                    if (msgerSendBtn) msgerSendBtn.disabled = true;
 
                     // Add user message to chat
                     appendMessage("You", PERSON_IMG, "right", msgText);
@@ -637,8 +641,12 @@
 
         async function fetchBotResponse(userText) {
             try {
-                // Call the Flask API endpoint
-                const response = await fetch('http://127.0.0.1:5000/chat', {
+                // Dynamically resolve API URL for production vs local development
+                const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+                    ? 'http://127.0.0.1:5000' 
+                    : 'https://api.psychecare.com'; // Replace with actual production API domain
+                
+                const response = await fetch(`${API_URL}/chat`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

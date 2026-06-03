@@ -1,5 +1,11 @@
 <?php
+session_start();
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Validate CSRF token
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("CSRF token validation failed");
+    }
+
     // Strip newlines from fields that go into headers to prevent CRLF/header injection
     $name = str_replace(array("\r", "\n"), '', $_POST['name']);
     $email = str_replace(array("\r", "\n"), '', $_POST['email']);

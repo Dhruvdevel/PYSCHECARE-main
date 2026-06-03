@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | PsycheCare</title>
+    <title>Sign Up | PsycheCare</title>
 
     <script src="https://kit.fontawesome.com/1b2b6a64da.js" crossorigin="anonymous"></script>
 
@@ -118,7 +118,7 @@
                     <li><a href="index.html#section-3">CHAT BOT</a></li>
                     <li><a href="otherHTML/statistics.html">STATISTICS</a></li>
                     <li><a href="index.html#footer">CONTACT</a></li>
-                    <li><a href="login.html" class="active">LOGIN</a></li>
+                    <li><a href="signup.html" class="active">SIGN UP</a></li>
                 </ul>
             </div>
 
@@ -144,70 +144,50 @@
                 <li><a href="index.html#section-3" class="mobile-view-list">CHAT BOT</a></li>
                 <li><a href="otherHTML/statistics.html" class="mobile-view-list">STATISTICS</a></li>
                 <li><a href="index.html#footer" class="mobile-view-list">CONTACT</a></li>
-                <li><a href="login.html" class="mobile-view-list">LOGIN</a></li>
+                <li><a href="signup.html" class="mobile-view-list">SIGN UP</a></li>
             </ul>
         </div>
     </div>
 
-    <!-- Login Form -->
+    <!-- Sign Up Form -->
     <div class="login-container">
         <div class="login-header">
             <div class="login-illustration">
                 <img src="Images/illustration-new/home-bot-img.png" alt="Login">
             </div>
-            <h2 style="color: var(--dark-color);">Welcome to <span style="color: var(--primary-color);">PsycheCare</span></h2>
-            <p style="color: var(--dark-color); font-size: 0.9rem;">Sign in to access your personal dashboard</p>
+            <h2 style="color: var(--dark-color);">Join <span style="color: var(--primary-color);">PsycheCare</span></h2>
+            <p style="color: var(--dark-color); font-size: 0.9rem;">Create your account and begin your wellness journey</p>
         </div>
 
-        <form action="login.php" method="post" class="login-form">
+        <form action="#" method="post" class="login-form">
             <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" required>
+                <label for="fullname">Full Name</label>
+                <input type="text" id="fullname" name="fullname" required>
             </div>
 
             <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+
+            <div class="form-group">                    
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" required>
-                <p class="error-message" id="login-error">Invalid username or password</p>
+                
             </div>
 
-            <button type="submit" class="login-btn">Log In</button>
+            <button type="submit" class="login-btn">Create Account</button>
             
             <div class="return-home">
-                <p>
-                    Don't have an account?
-                    <a href="signup.html">Sign Up</a>
-                </p>
-
-                <p style="margin-top:10px;">
-                     <a href="index.html">Return to Home</a>
-                </p>
-            </div>
+    <p>
+        Already have an account?
+        <a href="login.html">Log In</a>
+    </p>
+</div>
         </form>
     </div>
 
     <script src="otherJS/hamberger.js"></script>
-    <script>
-        // Show error message if login fails
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('error')) {
-            document.getElementById('login-error').style.display = 'block';
-        }
-    </script>
-    <script>
-        fetch('csrf.php')
-            .then(response => response.json())
-            .then(data => {
-                const forms = document.querySelectorAll('form');
-                forms.forEach(form => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'csrf_token';
-                    input.value = data.csrf_token;
-                    form.appendChild(input);
-                });
-            })
-            .catch(error => console.error('Error fetching CSRF token:', error));
-    </script>
+   
 </body>
 </html>

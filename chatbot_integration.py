@@ -147,7 +147,12 @@ def get_chatbot_response(message, user_id="000"):
         success = load_chatbot_model()
         if not success:
             return "Sorry, the chatbot is not available at the moment."
-    
+            
+    # Detect language
+    lang = detect_language(message)
+    if lang != 'en':
+        return "I currently only speak English, but you can contact our human support team for help in other languages."
+
     try:
         # Apply spelling correction
         spell = Speller()
@@ -190,7 +195,6 @@ def get_chatbot_response(message, user_id="000"):
 def detect_language(text):
     """
     Detect the language of the input text.
-    This is a simplified function that always returns English for now.
     
     Args:
         text (str): The input text
@@ -198,7 +202,11 @@ def detect_language(text):
     Returns:
         str: The detected language code
     """
-    return "en"  # Default to English
+    try:
+        from langdetect import detect
+        return detect(text)
+    except:
+        return "en"  # Default to English
 
 # Initialize the chatbot model when this module is imported
 load_chatbot_model()

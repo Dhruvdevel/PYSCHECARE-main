@@ -14,7 +14,7 @@ assignees: ""
 ## 📍 Location
 <!-- Which page or file is affected? -->
 - **Page / File:** (e.g. `contact.html`, `chatBot.html`, `chatbot_integration.py`)
-- **Line number (if known):** 
+- **Line number (if known):**
 
 ---
 
@@ -67,7 +67,7 @@ assignees: ""
 ## 🏷️ Suggested Labels
 <!-- Check the ones that apply — a maintainer will confirm -->
 - [ ] `level:beginner` — Simple fix
-- [ ] `level:intermediate` — Requires some investigation  
+- [ ] `level:intermediate` — Requires some investigation
 - [ ] `level:advanced` — Complex root cause
 - [ ] `level:critical` — Breaking / production issue
 - [ ] `type:security` — Security-related bug

@@ -20,140 +20,187 @@ jobs:
             // ================================================================
             //  PSYCHECARE — GSSoC PR SCORE CALCULATOR
             //
-            //  Formula: Score = 50 (base) + (difficulty × quality) + type_bonus
+            //  Formula:
+            //    Score = 50 (base) + (difficulty_pts × quality_mult) + type_pts
             //
-            //  Difficulty (required, pick one):
-            //    level:beginner      → 25 pts
-            //    level:intermediate  → 50 pts
-            //    level:advanced      → 75 pts
-            //    level:critical      → 100 pts
+            //  Difficulty (required, pick ONE):
+            //    level:beginner      →  20 pts
+            //    level:intermediate  →  35 pts
+            //    level:advanced      →  55 pts
+            //    level:critical      →  80 pts
             //
-            //  Quality (optional multiplier):
-            //    quality:clean       → ×1.15
-            //    quality:exceptional → ×1.30
+            //  Quality multiplier (optional, applied on difficulty only):
+            //    quality:clean       → ×1.0  (no bonus)
+            //    quality:exceptional → ×1.5
             //
-            //  Type bonus (stackable):
-            //    each type:* label   → +5 pts
+            //  Type points (optional, stackable):
+            //    type:bug            → +10 pts
+            //    type:feature        → +10 pts
+            //    type:testing        → +10 pts
+            //    type:refactor       → +10 pts
+            //    type:design         → +10 pts
+            //    type:security       → +20 pts
+            //    type:docs           → + 5 pts
+            //    type:devops         → +15 pts
+            //    type:performance    → +15 pts
+            //    type:accessibility  → +15 pts  (counts as "other")
             //
-            //  Base: gssoc:approved  → +50 pts (required)
+            //  Base: +50 pts per merged PR (requires gssoc:approved)
+            //
+            //  Max practical score: ~270 pts
             // ================================================================
 
             const PR_NUMBER  = context.payload.pull_request.number;
             const OWNER      = context.repo.owner;
             const REPO       = context.repo.repo;
-            const BOT_MARKER = '<!-- gssoc-score-calculator -->';
+            const BOT_MARKER = '<!-- gssoc-score-calculator-v2 -->';
 
-            // ── STEP 1: Fetch current labels on this PR ───────────────────
+            // ── STEP 1: Fetch current PR labels ───────────────────────────
             const prResp = await github.rest.pulls.get({
               owner: OWNER, repo: REPO, pull_number: PR_NUMBER
             });
             const labels = prResp.data.labels.map(l => l.name);
-            const pr     = prResp.data;
 
             // ── STEP 2: Detect mentor:username labels ─────────────────────
             const mentorLabels = labels.filter(l => l.startsWith('mentor:'));
             const mentors      = mentorLabels.map(l => `@${l.replace('mentor:', '')}`);
 
-            // ── STEP 3: Scoring logic ─────────────────────────────────────
+            // ── STEP 3: Base points ───────────────────────────────────────
+            const isApproved  = labels.includes('gssoc:approved');
+            const BASE_POINTS = isApproved ? 50 : 0;
 
-            // Base points (requires gssoc:approved)
-            const isApproved   = labels.includes('gssoc:approved');
-            const BASE_POINTS  = isApproved ? 50 : 0;
-
-            // Difficulty points (pick one)
+            // ── STEP 4: Difficulty points (pick ONE) ──────────────────────
             const DIFFICULTY_MAP = {
-              'level:beginner':     25,
-              'level:intermediate': 50,
-              'level:advanced':     75,
-              'level:critical':     100
+              'level:beginner':      20,
+              'level:intermediate':  35,
+              'level:advanced':      55,
+              'level:critical':      80
             };
-            const diffLabel = labels.find(l => Object.keys(DIFFICULTY_MAP).includes(l));
-            const diffPts   = diffLabel ? DIFFICULTY_MAP[diffLabel] : 0;
+            const diffLabels = labels.filter(l => l in DIFFICULTY_MAP);
+            const diffLabel  = diffLabels[0] || null;
+            const diffPts    = diffLabel ? DIFFICULTY_MAP[diffLabel] : 0;
 
-            // Quality multiplier (pick at most one)
+            // ── STEP 5: Quality multiplier (on difficulty only) ───────────
             const QUALITY_MAP = {
-              'quality:clean':       1.15,
-              'quality:exceptional': 1.30
+              'quality:clean':       1.0,
+              'quality:exceptional': 1.5
             };
-            const qualLabel  = labels.find(l => Object.keys(QUALITY_MAP).includes(l));
-            const qualMult   = qualLabel ? QUALITY_MAP[qualLabel] : 1.0;
-            const qualDisplay = qualLabel
-              ? `${qualLabel} (×${qualMult.toFixed(2)})`
-              : 'None (×1.00)';
+            const qualLabel = labels.find(l => l in QUALITY_MAP) || null;
+            const qualMult  = qualLabel ? QUALITY_MAP[qualLabel] : 1.0;
+            const diffAfterQuality = Math.round(diffPts * qualMult * 10) / 10; // 1 decimal
 
-            // Type bonus (stackable, +5 each)
-            const TYPE_PREFIX  = 'type:';
-            const typeLabels   = labels.filter(l => l.startsWith(TYPE_PREFIX));
-            const TYPE_BONUS   = typeLabels.length * 5;
+            // ── STEP 6: Type points (stackable, individual values) ────────
+            const TYPE_POINTS_MAP = {
+              'type:bug':           10,
+              'type:feature':       10,
+              'type:testing':       10,
+              'type:refactor':      10,
+              'type:design':        10,
+              'type:security':      20,
+              'type:docs':           5,
+              'type:devops':        15,
+              'type:performance':   15,
+              'type:accessibility': 15
+            };
+            const typeLabels   = labels.filter(l => l in TYPE_POINTS_MAP);
+            const TYPE_TOTAL   = typeLabels.reduce((sum, l) => sum + TYPE_POINTS_MAP[l], 0);
 
-            // ── STEP 4: Final score calculation ───────────────────────────
-            const diffAfterQuality = Math.round(diffPts * qualMult);
-            const TOTAL_SCORE      = BASE_POINTS + diffAfterQuality + TYPE_BONUS;
+            // ── STEP 7: Total score ───────────────────────────────────────
+            const TOTAL_SCORE = BASE_POINTS + diffAfterQuality + TYPE_TOTAL;
 
-            // ── STEP 5: Validation flags ──────────────────────────────────
-            const missingApproved   = !isApproved;
-            const missingDifficulty = !diffLabel;
-            const multipleDifficulty = labels.filter(l =>
-              Object.keys(DIFFICULTY_MAP).includes(l)).length > 1;
+            // ── STEP 8: Validation flags ──────────────────────────────────
+            const missingApproved    = !isApproved;
+            const missingDifficulty  = diffLabels.length === 0;
+            const multipleDifficulty = diffLabels.length > 1;
 
-            // ── STEP 6: Build the comment body ────────────────────────────
-            let statusBlock = '';
+            // ── STEP 9: Build comment ─────────────────────────────────────
+            let warningBlock = '';
+            if (missingApproved)
+              warningBlock += `> ⛔ **\`gssoc:approved\` is missing** — this PR will **not count** toward the leaderboard until a maintainer adds it.\n\n`;
+            if (missingDifficulty)
+              warningBlock += `> ⚠️ **No \`level:*\` difficulty label found** — this is **required**. Ask a maintainer to assign one.\n\n`;
+            if (multipleDifficulty)
+              warningBlock += `> ⚠️ **Multiple difficulty labels found** (\`${diffLabels.join('`, `')}\`) — only **one** should be applied.\n\n`;
 
-            if (missingApproved) {
-              statusBlock += `> ⛔ **\`gssoc:approved\` is missing** — this PR will **not count** toward the leaderboard until a maintainer adds it.\n\n`;
-            }
-            if (missingDifficulty) {
-              statusBlock += `> ⚠️ **No difficulty label found** — a \`level:*\` label is **required**. Ask a maintainer to assign one.\n\n`;
-            }
-            if (multipleDifficulty) {
-              statusBlock += `> ⚠️ **Multiple difficulty labels detected** — only **one** should be applied.\n\n`;
-            }
+            // Build type rows
+            const allTypeKeys = Object.keys(TYPE_POINTS_MAP);
+            const typeTableRows = allTypeKeys.map(t => {
+              const applied = typeLabels.includes(t);
+              const pts     = TYPE_POINTS_MAP[t];
+              return `| ${applied ? '✅' : '⬜'} | \`${t}\` | ${applied ? `**+${pts} pts**` : `~~+${pts} pts~~`} |`;
+            }).join('\n');
 
-            const typeRows = typeLabels.length > 0
-              ? typeLabels.map(t => `| \`${t}\` | +5 pts |`).join('\n')
-              : '| *(none)* | +0 pts |';
+            // Formula line
+            const formulaParts = [];
+            formulaParts.push(`${BASE_POINTS} (base)`);
+            formulaParts.push(`${diffAfterQuality} (${diffLabel || '?'} × ${qualMult})`);
+            if (TYPE_TOTAL > 0) formulaParts.push(`${TYPE_TOTAL} (types)`);
+
+            // Score emoji
+            const scoreEmoji = TOTAL_SCORE >= 200 ? '🏆' :
+                               TOTAL_SCORE >= 140 ? '🥇' :
+                               TOTAL_SCORE >= 80  ? '🥈' : '🥉';
 
             const mentorLine = mentors.length > 0
-              ? `\n---\n\n👨‍🏫 **Reviewed by mentor:** ${mentors.join(', ')}`
+              ? `\n---\n\n👨‍🏫 **Reviewed by:** ${mentors.join(', ')}`
               : '';
 
-            const scoreEmoji = TOTAL_SCORE >= 150 ? '🏆' :
-                               TOTAL_SCORE >= 100 ? '🥇' :
-                               TOTAL_SCORE >= 60  ? '🥈' : '🥉';
-
             const comment = `${BOT_MARKER}
-## ${scoreEmoji} GSSoC Score Summary
+## ${scoreEmoji} GSSoC Score Summary — PR #${PR_NUMBER}
 
-${statusBlock}### 📊 Score Breakdown
+${warningBlock}---
 
-| Component | Label | Value |
-|-----------|-------|-------|
-| Base | \`gssoc:approved\` | ${isApproved ? '+50 pts ✅' : '+0 pts ⛔ missing'} |
-| Difficulty | ${diffLabel ? `\`${diffLabel}\`` : '*(missing)*'} | ${diffPts > 0 ? `${diffPts} pts` : '0 pts ⚠️'} |
-| Quality | ${qualLabel ? `\`${qualLabel}\`` : '*(none)*'} | ×${qualMult.toFixed(2)} |
-| Difficulty × Quality | | **${diffAfterQuality} pts** |
-${typeRows}
-| Type Bonus Total | ${typeLabels.length} label(s) × 5 | **+${TYPE_BONUS} pts** |
+### 📊 Score Breakdown
+
+**Base**
+| Status | Component | Points |
+|--------|-----------|--------|
+| ${isApproved ? '✅' : '⛔'} | \`gssoc:approved\` | **${BASE_POINTS} pts** |
+
+**Difficulty** *(required — pick one)*
+| Status | Label | Base Pts | After Quality |
+|--------|-------|----------|---------------|
+| ${diffLabel === 'level:beginner'     ? '✅' : '⬜'} | \`level:beginner\`     | 20 pts | — |
+| ${diffLabel === 'level:intermediate' ? '✅' : '⬜'} | \`level:intermediate\` | 35 pts | — |
+| ${diffLabel === 'level:advanced'     ? '✅' : '⬜'} | \`level:advanced\`     | 55 pts | — |
+| ${diffLabel === 'level:critical'     ? '✅' : '⬜'} | \`level:critical\`     | 80 pts | — |
+
+**Quality** *(optional — applied on difficulty only)*
+| Status | Label | Multiplier | Difficulty After |
+|--------|-------|------------|-----------------|
+| ${qualLabel === 'quality:clean'       ? '✅' : '⬜'} | \`quality:clean\`       | ×1.0 | ${Math.round(diffPts * 1.0 * 10)/10} pts |
+| ${qualLabel === 'quality:exceptional' ? '✅' : '⬜'} | \`quality:exceptional\` | ×1.5 | ${Math.round(diffPts * 1.5 * 10)/10} pts |
+
+> Applied: **${diffPts} × ${qualMult} = ${diffAfterQuality} pts**
+
+**Contribution Type** *(stackable)*
+| | Label | Points |
+|---|-------|--------|
+${typeTableRows}
+
+> Type total: **+${TYPE_TOTAL} pts**
 
 ---
 
 ### 🧮 Formula
 
 \`\`\`
-Score = ${BASE_POINTS} (base) + ${diffAfterQuality} (difficulty × quality) + ${TYPE_BONUS} (type bonus)
+Score = ${BASE_POINTS} + ${diffAfterQuality} + ${TYPE_TOTAL}
       = ${TOTAL_SCORE} pts
 \`\`\`
 
-## 💯 Total Score: **${TOTAL_SCORE} pts**${mentorLine}
+> ${formulaParts.join(' + ')}
+
+## 💯 Total Score: **${TOTAL_SCORE} pts**
+${mentorLine}
 
 ---
-<sub>🤖 Auto-calculated by the GSSoC Score Bot · Updates on every label change</sub>`;
+<sub>🤖 Auto-updated by GSSoC Score Bot on every label change · Max practical score: ~270 pts</sub>`;
 
-            // ── STEP 7: Find existing bot comment and update or create ─────
+            // ── STEP 10: Update existing comment or create new one ─────────
             const comments = await github.rest.issues.listComments({
               owner: OWNER, repo: REPO, issue_number: PR_NUMBER, per_page: 100
             });
-
             const existing = comments.data.find(c => c.body.includes(BOT_MARKER));
 
             if (existing) {
@@ -162,12 +209,12 @@ Score = ${BASE_POINTS} (base) + ${diffAfterQuality} (difficulty × quality) + ${
                 comment_id: existing.id,
                 body: comment
               });
-              console.log(`Updated existing score comment (ID: ${existing.id})`);
+              console.log(`✅ Updated score comment (ID: ${existing.id}) — Total: ${TOTAL_SCORE} pts`);
             } else {
               await github.rest.issues.createComment({
                 owner: OWNER, repo: REPO,
                 issue_number: PR_NUMBER,
                 body: comment
               });
-              console.log('Created new score comment');
+              console.log(`✅ Created score comment — Total: ${TOTAL_SCORE} pts`);
             }

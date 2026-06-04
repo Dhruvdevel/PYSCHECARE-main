@@ -48,10 +48,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         // Insert new user
         $stmt = $db->prepare(
-            "INSERT INTO users (username, password_hash) VALUES (:username, :password_hash)"
+            "INSERT INTO users (username, email, password_hash) VALUES (:username, :email, :password_hash)"
         );
         $stmt->execute([
             ':username' => $username,
+            ':email' => $email,
             ':password_hash' => $password_hash
         ]);
 
